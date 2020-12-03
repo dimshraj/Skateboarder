@@ -44,6 +44,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         case low = 0.0
         case high = 100.0
     }
+    // Этот enum определяет состояния, в которых может находиться игра
+    enum GameState {
+        case notRunning
+        case running
+    }
+    // Отслеживаем текущее состояние игры
+    var gameState = GameState.notRunning
+    
     // Текущий уровень определяет положение по оси y для новых секций
     var brickLevel = BrickLevel.low
     
@@ -70,7 +78,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let tapMethod = #selector(GameScene.handleTap(tapGesture:))
         let tapGesture = UITapGestureRecognizer(target: self, action: tapMethod)
         view.addGestureRecognizer(tapGesture)
-        startGame()
+        // Добавляем слой меню с текстом "Нажмите, чтобы играть"
+        let menuBackgroundColor = UIColor.black.withAlphaComponent(0.4)
+        let menuLayer = MenuLayer(color: menuBackgroundColor, size: frame.size)
+        menuLayer.anchorPoint = CGPoint(x: 0.0, y: 0.0)
+        menuLayer.position = CGPoint(x: 0.0, y: 0.0)
+        menuLayer.zPosition = 30
+        menuLayer.name = "menuLayer"
+        menuLayer.display(message: "Нажмите, чтобы играть", score: nil)
+        addChild(menuLayer)
     }
     
     func resetSkater() {
@@ -86,6 +102,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         skater.physicsBody?.angularVelocity = 0.0
     }
     func startGame() {
+        gameState = .running
         // Возвращение к начальным условиям при запуске новой игры
         resetSkater()
         score = 0
@@ -102,12 +119,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     func gameOver() {
+        gameState = .notRunning
         // По завершении игры проверяем, добился ли игрок нового рекорда
         if score > highScore {
             highScore = score
             updateHighScoreLabelText()
         }
-        startGame()
+        // Показываем надпись "Игра окончена!"
+        let menuBackgroundColor = UIColor.black.withAlphaComponent(0.4)
+        let menuLayer = MenuLayer(color: menuBackgroundColor, size: frame.size)
+        menuLayer.anchorPoint = CGPoint.zero
+        menuLayer.position = CGPoint.zero
+        menuLayer.zPosition = 30
+        menuLayer.name = "menuLayer"
+        menuLayer.display(message: "Игра окончена!", score: score)
+        addChild(menuLayer)
     }
     
     func setupLabels() {
@@ -234,9 +260,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let randomNumber = arc4random_uniform(99)
             
             if randomNumber < 2 && score > 10 {
-            // 2-процентный шанс на то, что у нас возникнет разрыв между
-            // секциями после того, как игрок набрал 10 призовых очков
-            //if randomNumber < 5 {
+                // 2-процентный шанс на то, что у нас возникнет разрыв между
+                // секциями после того, как игрок набрал 10 призовых очков
+                //if randomNumber < 5 {
                 // 5-процентный шанс на то, что у нас
                 // возникнет разрыв между секциями
                 let gap = 20.0 * scrollSpeed
@@ -247,10 +273,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 let newGemY = brickY + skater.size.height + randomGemYAmount
                 let newGemX = brickX - gap / 2.0
                 spawnGem(atPosition: CGPoint(x: newGemX, y: newGemY))
-            
+                
             } else if randomNumber < 4 && score > 20 {
                 // 2-процентный шанс на то, что уровень секции Y изменится // после того, как игрок набрал 20 призовых очков
-            //} else if randomNumber < 10 {
+                //} else if randomNumber < 10 {
                 // В игре имеется 5-процентный шанс на изменение уровня секции
                 if brickLevel == .high {
                     brickLevel = .low
@@ -281,19 +307,23 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Определяем, находится ли скейтбордистка на земле
         if let velocityY = skater.physicsBody?.velocity.dy {
-            if !skater.isOnGround {
-                if velocityY < -100.0 || velocityY > 100.0 {
-                    skater.isOnGround = false
-                }
+            
+            if velocityY < -100.0 || velocityY > 100.0 {
+                skater.isOnGround = false
             }
-            // Проверяем, должна ли игра закончиться
-            let isOffScreen = skater.position.y < 0.0 ||  skater.position.x < 0.0
-            let maxRotation = CGFloat(GLKMathDegreesToRadians(85.0))
-            let isTippedOver = skater.zRotation > maxRotation || skater.zRotation < -maxRotation
-            if isOffScreen || isTippedOver {
-                gameOver() }
+        }
+        
+        // Проверяем, должна ли игра закончиться
+        let isOffScreen = skater.position.y < 0.0 || skater.position.x < 0.0
+        
+        let maxRotation = CGFloat(GLKMathDegreesToRadians(85.0))
+        let isTippedOver = skater.zRotation > maxRotation || skater.zRotation < -maxRotation
+        
+        if isOffScreen || isTippedOver {
+            gameOver()
         }
     }
+    
     func updateScore(withCurrentTime currentTime: TimeInterval) {
         // Количество очков игрока увеличивается по мере игры
         // Счет обновляется каждую секунду
@@ -301,7 +331,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if elapsedTime > 1.0 {
             // Увеличиваем количество очков
             score += Int(scrollSpeed)
-            // Присваиваем свойству lastScoreUpdateTime значение 8 текущего времени
+            // Присваиваем свойству lastScoreUpdateTime значение текущего времени
             lastScoreUpdateTime = currentTime
             updateScoreLabelText()
         }
@@ -310,6 +340,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Вызывается перед отрисовкой каждого кадра
     override func update(_ currentTime: TimeInterval) {
+        
+        if gameState != .running {
+            return
+        }
         
         // Медленно увеличиваем значение scrollSpeed по мере развития игры
         scrollSpeed += 0.001
@@ -333,24 +367,43 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     @objc func handleTap(tapGesture: UITapGestureRecognizer) {
-        // Заставляем скейтбордистку прыгнуть нажатием на экран, пока она находится на земле
-        if skater.isOnGround {
-            skater.physicsBody?.applyImpulse(CGVector(dx: 0.0, dy: 260.0))
+        if gameState == .running {
+            // Заставляем скейтбордистку прыгнуть нажатием на экран, пока она находится на земле
+            if skater.isOnGround {
+                skater.physicsBody?.applyImpulse(CGVector(dx: 0.0, dy: 260.0))
+                run(SKAction.playSoundFileNamed("jump.wav", waitForCompletion: false))
+            }
+        } else {
+            // Если игра не запущена, нажатие на экран запускает новую игру
+            if let menuLayer: SKSpriteNode = childNode(withName: "menuLayer") as? SKSpriteNode {
+                menuLayer.removeFromParent()
+                startGame()
+            }
         }
     }
     // MARK:- SKPhysicsContactDelegate Methods
     func didBegin(_ contact: SKPhysicsContact) {
         // Проверяем, есть ли контакт между скейтбордисткой и секцией
         if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.brick {
+            
+            if let velocityY = skater.physicsBody?.velocity.dy {
+                
+                if !skater.isOnGround && velocityY < 100.0 {
+                    
+                    skater.createSparks()
+                }
+            }
+            
             skater.isOnGround = true
-        }
-        else if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.gem {
+        } else if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.gem {
             // Скейтбордистка коснулась алмаза, поэтому мы его убираем
             if let gem = contact.bodyB.node as? SKSpriteNode {
                 removeGem(gem)
                 // Даем игроку 50 очков за собранный алмаз
                 score += 50
                 updateScoreLabelText()
+                run(SKAction.playSoundFileNamed("gem.wav", waitForCompletion: false))
+                
             }
         }
     }
