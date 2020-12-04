@@ -62,11 +62,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.gravity = CGVector(dx: 0.0, dy: -6.0)
         physicsWorld.contactDelegate = self
         anchorPoint = CGPoint.zero
-        
         let background = SKSpriteNode(imageNamed: "background")
         let xMid = frame.midX
         let yMid = frame.midY
         background.position = CGPoint(x: xMid, y: yMid)
+        background.size = self.frame.size
+
+        
         addChild(background)
         setupLabels()
         // Создаем скейтбордистку и добавляем ее к сцене
